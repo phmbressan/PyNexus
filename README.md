@@ -19,7 +19,7 @@ python3 http_client.py <port> <webhost>
 ### Start the Server
 
 ```
-python3 http_server.py <port> [ip]
+python3 http_server.py <port> <ip>
 ```
 
 ## Disclaimer
