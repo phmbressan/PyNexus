@@ -70,7 +70,7 @@ def process_request(request: str) -> str:
     ----------
     request : str
         The request string.
-    
+
     Returns
     -------
     response: str
@@ -92,7 +92,7 @@ def get_request(filepath: Path) -> str:
     ----------
     filepath : Path
         The path to the file.
-    
+
     Returns
     -------
     response: str

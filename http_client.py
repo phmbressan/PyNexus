@@ -74,14 +74,16 @@ def send_and_receive_lines(socket: socket.socket) -> None:
         conn.close()
         print("\nClosing connection to server.")
 
+
 def read_request() -> str:
     """Reads a multiple line request from the user and returns it.
     The request is terminated by a blank line.
-    
+
     Returns
     -------
     str
-        The input formatted according to HTTP request."""
+        The input formatted according to HTTP request.
+    """
     lines = []
 
     print("Enter request: ")
@@ -95,6 +97,7 @@ def read_request() -> str:
         lines.append(line + "\r\n")
 
     return "".join(lines)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
