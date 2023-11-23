@@ -2,39 +2,44 @@ import sys
 import socket
 
 
-def resolve_host(host: str) -> str:
-    """Resolves the host to an IPV4 address. If the host is already an IP
-    address, it is returned as is.
+def resolve_host_info(host: str, port: int) -> tuple:
+    """Resolves the host and port to the appropriate connection info,
+    prioritizing IPv6. Returns the connection info as a tuple to create
+    a socket.
 
     Parameters
     ----------
     host : str
         The host to resolve.
+    port : int
+        The port to connect to.
 
     Returns
     -------
-    str
-        The IP address of the host.
+    tuple
+        The connection info as a tuple with the following format:
+        `(family, type, proto, canonname, sockaddr)`
     """
-    try:
-        # Attempt to convert host to IP address if it's a domain name
-        ip = socket.gethostbyname(host)
-        return ip
-    except socket.gaierror:
-        print(f"Error: Unable to resolve host '{host}' to an IP address.")
-        sys.exit(1)
+    # Priorize IPv6
+    for addr_type in (socket.AF_INET6, socket.AF_INET):
+        try:
+            return socket.getaddrinfo(host, port, addr_type, socket.SOCK_STREAM)[0]
+
+        except Exception:
+            pass
+
+    raise AttributeError(f"Error: Unable to resolve host '{host}' to an IP address.")
 
 
-def connect_to_server(host: str, port: int) -> socket.socket:
-    """Connects to the server at `host` and `port` and returns the socket
-    object.
+def connect_to_server(connection_info: tuple) -> socket.socket:
+    """Receives the connection info and creates a socket to connect to the
+    server. Returns the socket object representing the client.
 
     Parameters
     ----------
-    host : str
-        The host to connect to.
-    port : int
-        The port to connect to.
+    connection_info : tuple
+        The connection info as a tuple with the following format:
+        `(family, type, proto, canonname, sockaddr)`
 
     Returns
     -------
@@ -42,17 +47,17 @@ def connect_to_server(host: str, port: int) -> socket.socket:
         The socket object representing the client.
     """
     try:
-        # Creates and binds the client socket
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect((host, port))
+        family, socktype, proto, _, address = connection_info
 
-        print(f"Connected to {host}:{port}")
+        client_socket = socket.socket(family, socktype, proto)
+        client_socket.connect(address)
 
-        return client_socket
+    except Exception as e:
+        raise ConnectionError(f"Error: Unable to connect to {address}") from e
 
-    except ConnectionError as e:
-        print(f"Error: Unable to connect to {host}:{port}")
-        sys.exit(1)
+    print(f"Connected to {address}")
+
+    return client_socket
 
 
 def send_and_receive_lines(socket: socket.socket) -> None:
@@ -106,6 +111,6 @@ if __name__ == "__main__":
 
     port, webhost = int(sys.argv[1]), sys.argv[2]
 
-    ip = resolve_host(webhost)
-    conn = connect_to_server(ip, port)
+    info = resolve_host_info(webhost, port)
+    conn = connect_to_server(info)
     send_and_receive_lines(conn)
