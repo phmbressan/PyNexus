@@ -3,6 +3,8 @@ import socket
 
 from pathlib import Path
 
+from common_conn import resolve_host_info
+
 
 def server_routine(socket: socket.socket) -> None:
     """Performs the server routine of accepting a connection, receiving data,
@@ -41,6 +43,8 @@ def start_server(host: str = "", port: int = 9_001, n_listen: int = 5) -> socket
         The host to listen on.
     port : int
         The port to listen on.
+    n_listen : int
+        The number of connections to listen for.
 
     Returns
     -------
@@ -49,8 +53,10 @@ def start_server(host: str = "", port: int = 9_001, n_listen: int = 5) -> socket
     """
     try:
         # Creates and binds the server socket
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((host, port))
+        family, socktype, proto, _, address = resolve_host_info(host, port)
+
+        server_socket = socket.socket(family, socktype, proto)
+        server_socket.bind(address)
 
         # Listen for incoming connections
         server_socket.listen(n_listen)
