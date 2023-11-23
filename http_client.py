@@ -1,45 +1,19 @@
 import sys
 import socket
 
+from common_conn import resolve_host_info
 
-def resolve_host_info(host: str, port: int) -> tuple:
-    """Resolves the host and port to the appropriate connection info,
-    prioritizing IPv6. Returns the connection info as a tuple to create
-    a socket.
+
+def connect_to_server(host: str, port: int) -> socket.socket:
+    """Connects to the server at `host` and `port` and returns the socket
+    object.
 
     Parameters
     ----------
     host : str
-        The host to resolve.
+        The host to connect to.
     port : int
         The port to connect to.
-
-    Returns
-    -------
-    tuple
-        The connection info as a tuple with the following format:
-        `(family, type, proto, canonname, sockaddr)`
-    """
-    # Priorize IPv6
-    for addr_type in (socket.AF_INET6, socket.AF_INET):
-        try:
-            return socket.getaddrinfo(host, port, addr_type, socket.SOCK_STREAM)[0]
-
-        except Exception:
-            pass
-
-    raise AttributeError(f"Error: Unable to resolve host '{host}' to an IP address.")
-
-
-def connect_to_server(connection_info: tuple) -> socket.socket:
-    """Receives the connection info and creates a socket to connect to the
-    server. Returns the socket object representing the client.
-
-    Parameters
-    ----------
-    connection_info : tuple
-        The connection info as a tuple with the following format:
-        `(family, type, proto, canonname, sockaddr)`
 
     Returns
     -------
@@ -47,7 +21,7 @@ def connect_to_server(connection_info: tuple) -> socket.socket:
         The socket object representing the client.
     """
     try:
-        family, socktype, proto, _, address = connection_info
+        family, socktype, proto, _, address = resolve_host_info(host, port)
 
         client_socket = socket.socket(family, socktype, proto)
         client_socket.connect(address)
@@ -111,6 +85,5 @@ if __name__ == "__main__":
 
     port, webhost = int(sys.argv[1]), sys.argv[2]
 
-    info = resolve_host_info(webhost, port)
-    conn = connect_to_server(info)
+    conn = connect_to_server(webhost, port)
     send_and_receive_lines(conn)
