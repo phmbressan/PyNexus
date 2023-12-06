@@ -1,19 +1,49 @@
 import sys
 import socket
+import threading
 
 from pathlib import Path
 
 from common_conn import resolve_host_info
 
 
+semaphore = threading.Semaphore(8)
+
 def server_routine(socket: socket.socket) -> None:
     """Performs the server routine of accepting a connection, receiving data,
-    and echoing it back to the client. The socket is closed after the data is
-    sent.
+    and echoing it back to the client. Threading is used so that multiple
+    clients are accepted.
+    The socket is closed after the request is processed.
     """
     try:
-        connection, address = socket.accept()
+        while True:
+            connection, address = socket.accept()
 
+            # Monitor thread number
+            semaphore.acquire()
+
+            thread = threading.Thread(
+                target=handle_client_connection, args=(connection, address)
+            )
+            thread.start()
+
+    except Exception as e:
+        print(f"Server Error: {e}")
+    finally:
+        print("Closing server socket.")
+        socket.close()
+
+def handle_client_connection(connection: socket.socket, address: tuple) -> None:
+    """Handles a client connection.
+
+    Parameters
+    ----------
+    connection : socket.socket
+        The client connection.
+    address : tuple
+        The client address.
+    """
+    try:
         print(f"Connected to {address[0]}:{address[1]}")
 
         with connection:
@@ -30,7 +60,8 @@ def server_routine(socket: socket.socket) -> None:
         print(f"Server Error: {e}")
     finally:
         print("Closing server socket.")
-        socket.close()
+        connection.close()
+        semaphore.release()
 
 
 def start_server(host: str = "", port: int = 9_001, n_listen: int = 5) -> socket.socket:
