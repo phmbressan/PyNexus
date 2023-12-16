@@ -1,15 +1,19 @@
-import sys
-import socket
-import threading
+"""
+A simple HTTP server that accepts GET requests and returns the local file 
+requested.
+"""
 
+import socket
+import sys
+import threading
 from pathlib import Path
 
 from common_conn import resolve_host_info
 
-
 semaphore = threading.Semaphore(8)
 
-def server_routine(socket: socket.socket) -> None:
+
+def server_routine(server_socket: socket.socket) -> None:
     """Performs the server routine of accepting a connection, receiving data,
     and echoing it back to the client. Threading is used so that multiple
     clients are accepted.
@@ -17,23 +21,23 @@ def server_routine(socket: socket.socket) -> None:
     """
     try:
         while True:
-            connection, address = socket.accept()
+            connection, address = server_socket.accept()
 
             # Monitor thread number
-            semaphore.acquire()
-
-            thread = threading.Thread(
-                target=handle_client_connection, args=(connection, address)
-            )
-            thread.start()
+            with semaphore:
+                thread = threading.Thread(
+                    target=handle_client_connection, args=(connection, address)
+                )
+                thread.start()
 
     except Exception as e:
-        print(f"Server Error: {e}")
+        raise ConnectionError(f"Server Error: {e}") from e
     finally:
-        print("Closing server socket.")
-        socket.close()
+        print(f"Closing server socket at {server_socket}.")
+        server_socket.close()
 
-def handle_client_connection(connection: socket.socket, address: tuple) -> None:
+
+def handle_client_connection(server_socket: socket.socket, address: tuple) -> None:
     """Handles a client connection.
 
     Parameters
@@ -46,21 +50,21 @@ def handle_client_connection(connection: socket.socket, address: tuple) -> None:
     try:
         print(f"Connected to {address[0]}:{address[1]}")
 
-        with connection:
+        with server_socket:
             while True:
-                data = connection.recv(1024)
+                data = server_socket.recv(4096)
                 if not data:
                     break
 
                 response = process_request(data.decode())
 
-                connection.sendall(response.encode())
+                server_socket.sendall(response.encode())
 
     except Exception as e:
-        print(f"Server Error: {e}")
+        raise ConnectionError(f"Server Error: {e}") from e
     finally:
-        print("Closing server socket.")
-        connection.close()
+        print(f"Closing server socket at {address[0]}:{address[1]}.")
+        server_socket.close()
         semaphore.release()
 
 
@@ -96,8 +100,7 @@ def start_server(host: str = "", port: int = 9_001, n_listen: int = 5) -> socket
 
         return server_socket
     except Exception as e:
-        print(f"Error: Unable to connect to {host}:{port} due to {e}")
-        sys.exit(1)
+        raise ConnectionError(f"Error: Unable to connect to {host}:{port}.") from e
 
 
 def process_request(request: str) -> str:
@@ -118,8 +121,8 @@ def process_request(request: str) -> str:
     if request_words[0] == "GET":
         filepath = Path("./" + request_words[1].strip("./"))
         return get_request(filepath)
-    else:
-        raise NotImplementedError
+
+    raise NotImplementedError
 
 
 def get_request(filepath: Path) -> str:
@@ -135,24 +138,30 @@ def get_request(filepath: Path) -> str:
     response: str
         The response string.
     """
+    response_template = (
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Length: {content_length}\r\n"
+        "Content-Type: text/{file_ext}\r\n\r\n{content}"
+    )
+
     try:
         file_ext = filepath.suffix.lstrip(".")
 
         with open(filepath, "rb") as f:
             content = f.read()
-
-        return f"HTTP/1.1 200 OK\r\nContent-Length: {len(content)}\r\nContent-Type: text/{file_ext}\r\n\r\n{str(content)}"
+        return response_template.format(
+            content_length=len(content), file_ext=file_ext, content=content.decode()
+        )
     except FileNotFoundError:
         return "HTTP/1.1 404 File Not Found\r\n\r\n"
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 3:
-        print("Usage: python server.py <port> <ip>")
+    if len(sys.argv) != 3:
+        print("Usage: python server.py <port> <address>")
         sys.exit(1)
 
-    port = int(sys.argv[1])
-    ip = sys.argv[2]
+    arg_port, arg_address = int(sys.argv[1]), sys.argv[2]
 
-    server_socket = start_server(ip, port)
-    server_routine(server_socket)
+    server = start_server(arg_address, arg_port)
+    server_routine(server)

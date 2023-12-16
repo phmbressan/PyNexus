@@ -1,5 +1,9 @@
-import sys
+"""
+A simple HTTP client that sends a request to a server and receives a response.
+"""
+
 import socket
+import sys
 
 from common_conn import resolve_host_info
 
@@ -29,12 +33,12 @@ def connect_to_server(host: str, port: int) -> socket.socket:
     except Exception as e:
         raise ConnectionError(f"Error: Unable to connect to {address}") from e
 
-    print(f"Connected to {address}")
+    print(f"Connected to {address} at {port}.")
 
     return client_socket
 
 
-def send_and_receive_lines(socket: socket.socket) -> None:
+def send_and_receive_lines(client_socket: socket.socket) -> None:
     """Sends and receives lines of text to and from the server.
 
     Parameters
@@ -44,14 +48,22 @@ def send_and_receive_lines(socket: socket.socket) -> None:
     """
     try:
         data = read_request()
-        socket.sendall(data.encode())
-        print(f"Received from server: {socket.recv(1024).decode()}")
+        client_socket.sendall(data.encode())
+
+        received = b""
+        while True:
+            block = client_socket.recv(4096)
+            received += block
+            if len(block) < 4096:
+                break
+
+        print(f"Received {len(received)} bytes from server: {received.decode()}")
 
     except Exception as e:
-        print(f"Connection ran into unexpected error: {e}")
+        raise ConnectionError("Connection ran into unexpected error.") from e
     finally:
-        conn.close()
         print("\nClosing connection to server.")
+        client_socket.close()
 
 
 def read_request() -> str:
@@ -83,7 +95,7 @@ if __name__ == "__main__":
         print("Usage: python http_client.py <port> <webhost>")
         sys.exit(1)
 
-    port, webhost = int(sys.argv[1]), sys.argv[2]
+    arg_port, arg_address = int(sys.argv[1]), sys.argv[2]
 
-    conn = connect_to_server(webhost, port)
-    send_and_receive_lines(conn)
+    client = connect_to_server(arg_address, arg_port)
+    send_and_receive_lines(client)
