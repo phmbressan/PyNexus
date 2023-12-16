@@ -116,7 +116,7 @@ def process_request(request: str) -> str:
     request_words = request.split()
 
     if request_words[0] == "GET":
-        filepath = Path(request_words[1])
+        filepath = Path("./" + request_words[1].strip("./"))
         return get_request(filepath)
     else:
         raise NotImplementedError
