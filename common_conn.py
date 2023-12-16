@@ -19,8 +19,8 @@ def resolve_host_info(host: str, port: int) -> tuple:
         The connection info as a tuple with the following format:
         `(family, type, proto, canonname, sockaddr)`
     """
-    # Priorize IPv6
-    for addr_type in (socket.AF_INET6, socket.AF_INET):
+    # Priorize IPv4
+    for addr_type in (socket.AF_INET, socket.AF_INET6):
         try:
             return socket.getaddrinfo(host, port, addr_type, socket.SOCK_STREAM)[0]
 
